@@ -169,7 +169,7 @@ export class ReceiverCore {
         args.push(controller.signal);
       }
       const raw: any = this.player[msg.fn](...args);
-      // Wait only on a thenable: a non-thenable result must reach postMessage synchronously so a sync port can answer.
+      // Wait only on a thenable, so a non-thenable result is posted without an extra tick.
       if (raw && typeof raw.then === "function") {
         raw.then(
           (v: unknown) =>
@@ -253,7 +253,7 @@ export class ReceiverCore {
       const args = entry.plan.args.map((p, i) =>
         marshalIn(p, msg.args[i], this.callbackCtx),
       );
-      // Await only a thenable: a non-thenable result must reach postMessage synchronously so a sync port can answer a sync vtable method.
+      // Await only a thenable, so a non-thenable result is posted without an extra tick.
       let result: any = entry.fn(...args);
       if (result && typeof result.then === "function") result = await result;
       let value: unknown;
@@ -388,7 +388,8 @@ export class ReceiverCore {
       };
     }
 
-    // Anything that must hand Rust a value now: only a synchronous port can.
+    // Anything that must hand Rust a value now: the reply is read straight after posting,
+    // so it is only there if the transport answered inline.
     return (...args: unknown[]) => {
       let reply: CallbackReturnMessage | undefined;
       this.postCallback(id, plan, args, (m) => {
